@@ -1,6 +1,7 @@
 # setwd("~/Documents/GitHub/2022modeling/WebApp")
 library('shiny')
 library('shinyWidgets')
+library('shinyjs') # for modeling only when button pressed, all inputs disabled temporarily  
 
 # for modeling
 library('plotly')
@@ -38,19 +39,25 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(id="sidebar",
       img(src = "iGEM_logga_vit.png", width = "100%", align="center"),
-      h1("What do you want to model?", align="center"),
-
-      tags$style("#polymer_count {background-color: black; color: white;}"),
-      selectInput(inputId="polymer_count",
-                 label=h3("Model 1 or 2 polymers"),
-                 choices = c("1 Polymer", "2 Polymers"),
-                 selected = c("1 Polymer"),
-                 selectize = FALSE),
       
-      hr(),
-      
-      uiOutput("modeling_parameters"),
+      div(id="model_parameters",
+        h1("What do you want to model?", align="center"),
+  
+        tags$style("#polymer_count {background-color: black; color: white;}"),
+        selectInput(inputId="polymer_count",
+                   label=h3("Model 1 or 2 polymers"),
+                   choices = c("1 Polymer", "2 Polymers"),
+                   selected = c("1 Polymer"),
+                   selectize = FALSE),
+        
+        hr(),
+        
+        uiOutput("modeling_parameters"),
+        
+        uiOutput("rerun_button")
       ),
+    ),
+      
     
     mainPanel(
       hr(),
@@ -98,28 +105,40 @@ server <- function(input, output, session) {
   
   reactive_sim_value <- reactive({
     a = switch(input$polymer_count,
-           "1 Polymer" = onePolymer(onePolymerTextParam),
+           "1 Polymer" = onePolymer(textOutput("some_text1")),
            "2 Polymers" = twoPolymers(textOutput("some_text2")),
            )
   })
+  
+  
   # reactive_sim_value <- reactiveValues(a = reactive_simulation)
   
   doing_setting <- FALSE # not setting 
   observeEvent(input$run_one_polymer, {
- 
+    
     # Update modeling parameters
     output$some_text1 <- renderPrint({ input$some_text1 })
     onePolymerTextParam <- textOutput("some_text1")
-    #reactiveTextParam <- reactiveValues(a = textOutput("some_text1"))
+    
     
     output$modeling_results <- renderUI({
-      h3(onePolymer(onePolymerTextParam)$a)
+      h3(reactive_sim_value()$text)
     })
     
+    # Remove input choices and add button for running again
+    removeUI(selector = 'div#model_parameters')
+    output$rerun_button <- renderUI({actionBttn("run_again", label = "Delete results to run again") })
+    
+    # TODO: enable stuff when button pressed instead, like 'clear results to run again'
+    #cat("sleeping for 30 seconds\n")
+    #Sys.sleep(30)
+    #shinyjs::enable("run_one_polymer") 
+    
+    
     # try freezing
+    # reactiveTextParam <- reactiveValues(a = textOutput("some_text1"))
     # session$onFlushed(function() freezeReactiveValue(reactive_sim_value, "a"))
     # freezeReactiveValue(reactive_sim_value, "a")
-    
   })
  
   
