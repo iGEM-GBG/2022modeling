@@ -1,5 +1,3 @@
-install.packages('pracma')
-install.packages('plotly')
 library('plotly')
 library('pracma')
 
@@ -9,11 +7,11 @@ rm(list = ls())
 dCasLength <- 7# (nm) TODO: check actual length
 
 N <- 20# Number of segments (less effect on smoothness than aT) #Doesn't seem to affect the result very much
-aT <- 10^4 * 2# Number of iterations, 10^6 needed for calculating TEV contact probability
+aT <- 10^2 * 2# Number of iterations, 10^6 needed for calculating TEV contact probability
 L <- 18# Protein linker chain length (1 amino acis: 3.4 - 4.0 Å usually for WLC)
 bp <- 30# number of base pairs (optimal: 10,20,30)
 DL <- 0.34*bp# DNA chain length (nm). 1 base pair: 0.34 nm (30bp: 10.2 nm)
-rotPerbp <- 2*math.pi/10.5# Rotation per base pair (10.5 bp per turn - https://www.pnas.org/doi/10.1073/pnas.75.2.640)
+rotPerbp <- 2*pi/10.5# Rotation per base pair (10.5 bp per turn - https://www.pnas.org/doi/10.1073/pnas.75.2.640)
 lp <- 0.6# Protein persistence length
 
 R <- integer(aT)# Radius vector
@@ -221,7 +219,7 @@ y <- histc(distance,seq(lb, ub, by = step))$cnt# Creating points for histogram
 x <- seq(lb, ub, by = step)# Calculate the x-value for each data point in the histogram
 k <- 1/trapz(x,y)# Riemann sum
 dens <- y*k  # Density estimation
-plot(x,dist,type='l', main="Histogram for endpoint distances", # Plot the data points in the histogram
+plot(x,dens,type='l', main="Histogram for endpoint distances", # Plot the data points in the histogram
      xlab="Endpoint distance (nm)", ylab="Approximated probability density")
 
 # Model contact probability: consider points in contact if the

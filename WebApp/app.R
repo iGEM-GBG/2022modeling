@@ -1,18 +1,11 @@
 # setwd("~/Documents/GitHub/2022modeling/WebApp")
 library('shiny')
 library('shinyWidgets')
-library('shinyjs') # for modeling only when button pressed, all inputs disabled temporarily  
 
 # for modeling
 library('plotly')
 library('pracma')
 source('WLCModelFunctions.R')
-
-# for testing
-library(maps)
-library(mapproj)
-source("helpers.R")
-counties <- readRDS("data/counties.rds")
 
 # Define UI for app that draws a histogram ----
 ui <- fluidPage(
@@ -40,22 +33,9 @@ ui <- fluidPage(
     sidebarPanel(id="sidebar",
       img(src = "iGEM_logga_vit.png", width = "100%", align="center"),
       
-      div(id="model_parameters",
-        h1("What do you want to model?", align="center"),
-  
-        tags$style("#polymer_count {background-color: black; color: white;}"),
-        selectInput(inputId="polymer_count",
-                   label=h3("Model 1 or 2 polymers"),
-                   choices = c("1 Polymer", "2 Polymers"),
-                   selected = c("1 Polymer"),
-                   selectize = FALSE),
-        
-        hr(),
-        
-        uiOutput("modeling_parameters"),
-        
-        uiOutput("rerun_button")
-      ),
+      uiOutput("model_div"),
+      
+      uiOutput("rerun_button"),
     ),
       
     
@@ -86,6 +66,7 @@ server <- function(input, output, session) {
   output$selected_polymer_count <- renderText({
     paste("You have selected",input$polymer_count)
   })
+  
   output$modeling_parameters <- renderUI({
     if (input$polymer_count == "1 Polymer") {
       tagList(
@@ -103,53 +84,56 @@ server <- function(input, output, session) {
     }
   })
   
-  reactive_sim_value <- reactive({
-    a = switch(input$polymer_count,
-           "1 Polymer" = onePolymer(textOutput("some_text1")),
-           "2 Polymers" = twoPolymers(textOutput("some_text2")),
-           )
-  })
-  
-  
-  # reactive_sim_value <- reactiveValues(a = reactive_simulation)
-  
-  doing_setting <- FALSE # not setting 
   observeEvent(input$run_one_polymer, {
     
-    # Update modeling parameters
-    output$some_text1 <- renderPrint({ input$some_text1 })
-    onePolymerTextParam <- textOutput("some_text1")
-    
     
     output$modeling_results <- renderUI({
-      h3(reactive_sim_value()$text)
+      # TODO: show all modeling parameters
+      
+      h3(onePolymer(input$some_text1)$text)
     })
     
-    # Remove input choices and add button for running again
-    removeUI(selector = 'div#model_parameters')
-    output$rerun_button <- renderUI({actionBttn("run_again", label = "Delete results to run again") })
-    
-    # TODO: enable stuff when button pressed instead, like 'clear results to run again'
-    #cat("sleeping for 30 seconds\n")
-    #Sys.sleep(30)
-    #shinyjs::enable("run_one_polymer") 
-    
-    
-    # try freezing
-    # reactiveTextParam <- reactiveValues(a = textOutput("some_text1"))
-    # session$onFlushed(function() freezeReactiveValue(reactive_sim_value, "a"))
-    # freezeReactiveValue(reactive_sim_value, "a")
+    run()
   })
- 
   
   observeEvent(input$run_two_polymers, {
-    # Update modeling parameters
-    output$some_text2 <- renderPrint({ input$some_text2 })
     
     output$modeling_results <- renderUI({
-        h3(reactive_sim_value()$text)
+      # TODO: show all modeling parameters
+      
+      h3(twoPolymers(input$some_text2)$text)
     })
+    
+    run()
   })
+  
+  run <- function(){ # Remove input choices and add button for running again
+    output$model_div <- renderUI({  })
+    output$rerun_button <- renderUI({actionBttn("run_again", label = "Delete results to run again") })
+  }
+  
+  observeEvent(input$run_again, {
+    output$model_div <- renderUI({ model_div })
+    removeUI(selector = '#run_again')
+    output$modeling_results <- renderUI({  })
+  })
+  
+  output$model_div <- renderUI({ model_div })
+  
+  model_div <- div(id="model_div",
+      h1("What do you want to model?", align="center"),
+      
+      tags$style("#polymer_count {background-color: black; color: white;}"),
+      selectInput(inputId="polymer_count",
+                  label=h3("Model 1 or 2 polymers"),
+                  choices = c("1 Polymer", "2 Polymers"),
+                  selected = c("1 Polymer"),
+                  selectize = FALSE),
+      
+      hr(),
+      
+      uiOutput("modeling_parameters"),
+  )
 }
 
 shinyApp(ui = ui, server = server)

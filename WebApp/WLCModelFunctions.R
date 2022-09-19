@@ -15,3 +15,11 @@ twoPolymers <- function(some_text) {
   resultList <- list("text" = text, "number" = number)
   return (resultList)
 }
+
+onePolymerSupport <- function() {
+  
+}
+
+twoPolymersSupport <- function() {
+  
+}
