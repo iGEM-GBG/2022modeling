@@ -16,7 +16,7 @@ twoPolymers <- function(some_text) {
   return (resultList)
 }
 
-onePolymerSupport <- function() {
+onePolymerSupport <- function(start) {
   
 }
 
