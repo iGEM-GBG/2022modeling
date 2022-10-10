@@ -1,14 +1,24 @@
 library('plotly')
 library('pracma')
 
-Compound <- "DNA"# "prot" or "DNA" to model protein or DNA respectively
+# Certain plots
+#library('akima')
+#library('rgl')
+#library('mapplots')
+
+# for 3D contour
+library('misc3d')
+
+
+Compound <- "prot"# "prot" or "DNA" to model protein or DNA respectively
 
 N <- 50# Number of segments (less effect on smoothness than aT) #Doesn't seem to affect the result very much
-aT <- 10^5# Number of chains    N=20  & 10^5 : 17 sek  /  10^4: 27.8 sek, 10^5: 7.9 min
+aT <- 10^4# Number of chains    N=20  & 10^5 : 8.7 min  /  10^4: 
+radiuses <- c(1,1) # Protein radiuses in nm
 
 if (Compound == "prot"){
-    L <- 10# Protein chain length (nm)
-    lp <- 0.6# Protein persistence length (nm)
+    L <- 18 # Protein chain length (nm)
+    lp <- 0.45 # Protein linker persistence length (nm)
 } else if (Compound == "DNA"){
     bp <- 30# Number of base pairs
     L <- 0.34*bp# DNA chain length (1 base pair: 0.34 nm, ~30 base pairs)
@@ -20,7 +30,7 @@ if (Compound == "prot"){
 
 sigma <- sqrt(L/(N*lp))# standard deviation
 
-R <- zeros(1,aT)# Radius vector
+R <- integer(aT)# Radius vector
 Rx <- zeros(aT,N)# x-direction
 Ry <- zeros(aT,N)# y-direction
 Rz <- zeros(aT,N)# z-direction
@@ -30,15 +40,10 @@ Position <- matrix(0,aT,3)# endpoint positions
 start_time <- Sys.time()
 for (j in 1:aT){
 
-    # Create initial segment with given angles
-    if (j <= aT/2){# Starting direction for first linker
-        theta_0 <- pi/2-0.001
-        phi_0 <- 0+0.001
-    } else {# Starting direction for second linker
-        theta_0 <- pi/2-0.001
-        phi_0 <- pi-0.001# pi
-    }
-
+    # Create initial segment with direction in positive x direction
+    theta_0 <- pi/2-0.001
+    phi_0 <- 0+0.001
+   
     # (Rx[i], Ry[i], Rz[i]) is a vector representing a segments direction and length.
     Rx[j,1] <- L/N *cos(phi_0)*sin(theta_0)
     Ry[j,1] <- L/N *sin(phi_0)*sin(theta_0)
@@ -92,32 +97,95 @@ for (j in 1:aT){
 end_time <- Sys.time()
 disp(end_time - start_time)
 
-# Plot the chain generated last
-figure(2)
+# Plot the chain generated first
 # cumsum is used for adding elements cumulatively for the coordinates of
 # all segment chain joints
-Rx_cumsum <- cumsum(Rx(},:))
-Ry_cumsum <- cumsum(Ry(},:))
-Rz_cumsum <- cumsum(Rz(},:))
+Rx_cumsum <- cumsum(Rx[1,])
+Ry_cumsum <- cumsum(Ry[1,])
+Rz_cumsum <- cumsum(Rz[1,])
 
-plot3(Rx_cumsum,Ry_cumsum,Rz_cumsum,'k')#Plot the chain!
-axis image
-xlabel("X")
-ylabel("Y")
-zlabel("Z")
+# Calculate protein midpoints
+position1 <- c(-radiuses[1], 0, 0)
+segmentCoord <- c(Rx[1,length(Rx[1,])], Ry[1,length(Ry[1,])], Rz[1,length(Rz[1,])])
+position2 <- Position[1,] + radiuses[2]/Norm(segmentCoord) * segmentCoord
 
+f <- function(x, y, z){
+  x^2 + y^2 + z^2
+}
+get_sphere_contour <- function(R){
+  x <- y <- z <- seq(-R, R, length.out = 100) 
+  g <- expand.grid(x = x, y = y, z = z)
+  voxel <- array(with(g, f(x, y, z)), dim = c(100, 100, 100))
+
+  return (computeContour3d(voxel, level = R^2, x = x, y = y, z = z))
+}
+
+cont1 <- get_sphere_contour(radiuses[1])
+cont2 <- get_sphere_contour(radiuses[2])
+
+idx <- matrix(0:(nrow(cont1)-1), ncol=3, byrow=TRUE)
+
+p <- plot_ly() %>%
+  add_trace(x = c(0,Rx_cumsum),
+            y = c(0,Ry_cumsum),
+            z = c(0,Rz_cumsum),
+            line = list(color = "pink", width = 5), 
+            type = 'scatter3d', mode = 'lines',showlegend = FALSE)%>%
+  layout(title = 'A Plotly Figure', paper_bgcolor='black',
+         font = list(color = '#FFFFFF'),
+         scene=list(xaxis=list(title="x-axis", gridcolor = '#FFFFFF'),
+                    yaxis= list(title="y-axis", gridcolor = '#FFFFFF'),
+                    zaxis= list(title="z-axis", gridcolor = '#FFFFFF')))%>%
+  add_mesh(x = cont1[, 1] + position1[1], y = cont1[, 2] + position1[2], z = cont1[, 3] + position1[3],
+           i = idx[, 1], j = idx[, 2], k = idx[, 3])%>%
+  add_mesh(x = cont2[, 1] + position2[1], y = cont2[, 2] + position2[2], z = cont2[, 3] + position2[3],
+           i = idx[, 1], j = idx[, 2], k = idx[, 3])
+
+p
+
+# Calculate vector from chain end to protein center
+v = zeros(aT,3);
+for (j in 1:aT) {
+  normSegment <- c(Rx[j,length(Rx[j,])],Ry[j,length(Ry[j,])],Rz[j,length(Rz[j,])])
+  normSegment = normSegment / Norm(normSegment)
+  v[j,] = radiuses[2]*normSegment  # vectors added to center of TEV halves
+}
+
+# calculate positions of second protein and surface distances
+prot_position <- zeros(aT,3) # center positions of second protein
+distance <- integer(aT); # surface distances
+for (j in (1:aT)){
+  prot_position[j,] = Position[j,] + v[j,];
+  distance[j] = Norm(position1 - prot_position[j,])-sum(radiuses)
+}
 
 # Create histogram
-ti <- "Estimated probability density"
-figure(3)
-lb <- 0# Lower boundary for the histogram. >0 to avoid noise
-ub <- L# Upper boundary for the histogram
-step <- (ub-lb)/(2*sqrt(aT))# Step size for the points in the histogram
-[y,edges] <- histcounts(R,lb:step:ub)# Creating points for histogram
-x <- lb:step:(ub-step)# Calculate the x-value for each data point in the histogram
+lb <- -sum(radiuses)# Lower boundary for the histogram.
+ub <- max(distance)# Upper boundary for the histogram
+step <- (ub-lb)/(sqrt(aT))# Step size for the points in the histogram
+y <- histc(distance,seq(lb, ub, by = step))$cnt # Creating points for histogram
+x <- seq(lb, ub, by = step)# Calculate the x-value for each data point in the histogram
 k <- 1/trapz(x,y)# trapz: Trapezoidal numerical integration
-plot(x,y*k,'b')# Plot the data points in the histogram
-xlabel("Chain reach [$nm$]", 'interpreter','latex','FontSize',14)
-ylabel("Density function", 'interpreter','latex','FontSize',14)
-title(ti)
-#eval(sprintf("title('#s #s','interpreter','latex','FontSize',14)",ti,num2str(N)))
+dens <- y*k # Density estimation
+
+histogram <- plot_ly()%>%
+     add_trace(x = x,y = dens,
+               line = list(color = "white"),
+               type='scatter', mode = 'lines')%>%
+     layout(title = paste("Surface distance probability density for polymer length ", L, "nm"), paper_bgcolor='black',
+            plot_bgcolor = "black",
+            font = list(color = '#FFFFFF'),
+            xaxis=list(title=list(text ='Endpoint distance (nm)', font = list(color = "white")),gridcolor = 'white'),
+            yaxis= list(title=list(text ='Probability density', font = list(color = "white")), gridcolor = 'white'))
+
+histogram
+
+# Calculate contact probability
+ContactProb <- 0
+for (i in 1:floor((ub-lb)/(step*2))){
+  if (lb+step*i < 0.5){ # 5 å
+    ContactProb = ContactProb + dens[i];
+  }
+}
+ContactProb = ContactProb*step
+

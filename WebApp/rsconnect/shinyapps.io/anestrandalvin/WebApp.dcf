@@ -1,0 +1,13 @@
+name: WebApp
+title: WebApp
+username:
+account: anestrandalvin
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 7241703
+bundleId: 6385052
+url: https://anestrandalvin.shinyapps.io/WebApp/
+when: 1665336464.28539
+lastSyncTime: 1665336464.2854
+asMultiple: FALSE
+asStatic: FALSE
